@@ -145,7 +145,7 @@ if st.button("予測を実行する (Run Forecast)", type="primary"):
         # ─── 下段: 翌営業日レンジ図 ───
         ax2 = axes[1]
         ax2.set_title('Next Trading Day Predicted Range', fontsize=13)
-       ylim(-1, 1)
+        ax2.set_ylim(-1, 1)
         
         ax2.barh(0, next_range['high_2sigma'] - next_range['low_2sigma'], left=next_range['low_2sigma'], color='#BBDEFB', height=0.6, label='2σ Range (95%)')
         ax2.barh(0, next_range['high_1sigma'] - next_range['low_1sigma'], left=next_range['low_1sigma'], color='#64B5F6', height=0.6, label='1σ Range (68%)')
