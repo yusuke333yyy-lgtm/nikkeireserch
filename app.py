@@ -110,60 +110,36 @@ if st.button("予測を実行する (Run Forecast)", type="primary"):
     m5.metric("Oil", f"{latest['Oil']:.2f}")
     m6.metric("SMA25 乖離率", f"{latest['SMA_Dist25']:.2%}")
     
-    # チャート描画部分
+    # テキストサマリーの生成
     st.divider()
-    st.subheader("📉 トレンド＆レンジ 予測チャート")
-    with st.spinner("チャートを描画中..."):
-        fig, axes = plt.subplots(2, 1, figsize=(14, 12), gridspec_kw={'height_ratios': [2, 1]})
-        
-        # ─── 上段: マルチホライゾン予測チャート ───
-        ax1 = axes[0]
-        recent_df = df_raw.tail(60)
-        ax1.plot(recent_df.index, recent_df['Close'], label='Actual Price', color='#2196F3', linewidth=2)
-        
-        from pandas.tseries.offsets import CustomBusinessDay
-        bday = CustomBusinessDay()
-        
-        prices = [current_price]
-        dates  = [last_date]
-        
-        for i, h in enumerate(horizons):
-            future_date = last_date + (bday * h)
-            pred_val = float(res_df.iloc[i]['予測価格'].replace(' 円', '').replace(',', ''))
-            prices.append(pred_val)
-            dates.append(future_date)
-            ax1.scatter(future_date, pred_val, s=150, zorder=5)
-            ax1.annotate(f"{h}d: {pred_val:,.0f}", (future_date, pred_val),
-                         textcoords="offset points", xytext=(0, 15), ha='center', fontsize=10, fontweight='bold')
+    st.subheader("📝 AIによる市況サマリーレポート")
+    
+    vix_val = latest['VIX']
+    if vix_val > 25:
+        vix_alert = "非常に高くなっており、相場の急激な変動に最大級の警戒が必要です。"
+    elif vix_val > 20:
+        vix_alert = "やや高まっており、相場のボラティリティに警戒が必要です。"
+    else:
+        vix_alert = "落ち着いた水準にあり、比較的安定した値動きが予想されます。"
+    
+    trend_25d = results[-1]['トレンド']
+    prob_25d = results[-1]['上昇確率']
+    
+    report_text = f"""本日の日経平均株価は **{current_price:,.2f} 円** となりました。
 
-        ax1.plot(dates, prices, linestyle='--', color='#f44336', alpha=0.7, label='Forecast Trend')
-        ax1.set_title(f'Nikkei 225 Multi-Horizon Forecast', fontsize=15)
-        ax1.set_ylabel('Price (JPY)')
-        ax1.grid(True, linestyle='--', alpha=0.4)
-        ax1.legend()
+**【翌営業日の展望】**
+市場のVIX（恐怖指数）は現在 {vix_val:.2f} と{vix_alert}
+AIの予測モデルによれば、翌営業日は中心予想 **{next_range['center']:,.0f}円** を基準とし、
+上値目途 **{next_range['high_2sigma']:,.0f}円** から 下値目途 **{next_range['low_2sigma']:,.0f}円** のレンジ内で推移するシナリオが有力視されています。
 
-        # ─── 下段: 翌営業日レンジ図 ───
-        ax2 = axes[1]
-        ax2.set_title('Next Trading Day Predicted Range', fontsize=13)
-        ax2.set_ylim(-1, 1)
-        
-        ax2.barh(0, next_range['high_2sigma'] - next_range['low_2sigma'], left=next_range['low_2sigma'], color='#BBDEFB', height=0.6, label='2σ Range (95%)')
-        ax2.barh(0, next_range['high_1sigma'] - next_range['low_1sigma'], left=next_range['low_1sigma'], color='#64B5F6', height=0.6, label='1σ Range (68%)')
-        ax2.axvline(x=next_range['center'], color='#1565C0', linewidth=3, linestyle='-', label=f"Center: {next_range['center']:,}")
-        ax2.axvline(x=current_price, color='#FF7043', linewidth=3, linestyle='--', label=f"Current: {current_price:,.0f}")
+**【中長期の展望】**
+約1ヶ月後（25営業日後）のトレンド予測では「**{trend_25d}**」（AIによる上昇確率: {prob_25d}）のサインが出ています。
+足元の為替（USD/JPY: {latest['USDJPY']:.2f}）や米金利（TNX: {latest['TNX']:.2f}）の動向に注意を払いながら、ポジションの調整を図ることをお勧めします。
 
-        for val, label in [
-            (next_range['low_2sigma'], f"▼2σ\n{next_range['low_2sigma']:,}"),
-            (next_range['low_1sigma'], f"▼1σ\n{next_range['low_1sigma']:,}"),
-            (next_range['high_1sigma'], f"▲1σ\n{next_range['high_1sigma']:,}"),
-            (next_range['high_2sigma'], f"▲2σ\n{next_range['high_2sigma']:,}"),
-        ]:
-            ax2.text(val, 0.45, label, ha='center', va='bottom', fontsize=10, fontweight='bold')
+*(※本レポートはAIによる統計的確率予測であり、投資結果を保証するものではありません)*
+"""
+    st.info(report_text)
+    
+    with st.expander("テキストをコピーする（SNSやメモ用）"):
+        st.code(report_text, language="markdown")
 
-        ax2.set_yticks([])
-        ax2.set_xlabel('Price (JPY)', fontsize=12)
-        ax2.legend(loc='upper right')
-        ax2.grid(True, axis='x', linestyle='--', alpha=0.4)
-
-        plt.tight_layout()
-        st.pyplot(fig)
